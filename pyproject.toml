@@ -1,0 +1,39 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "jarvis"
+version = "0.1.0"
+description = "A Jarvis-style voice assistant powered by Claude"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+  "anthropic>=2.4",
+  "claude-agent-sdk>=0.2",
+  "httpx>=0.27",
+  "numpy>=1.26",
+  "python-dotenv>=1.0",
+  "pyyaml>=6.0",
+  "sounddevice>=0.4.6",
+]
+
+[project.optional-dependencies]
+# Local, free providers
+whisper = ["faster-whisper>=1.1"]
+wakeword = ["openwakeword>=0.6"]
+kokoro = ["kokoro>=0.9.4", "soundfile"]
+csm = ["transformers>=4.52.1", "accelerate", "torch"]
+system = ["pyttsx3>=2.98"]
+# Everything for a fully local setup (except CSM, which needs a big GPU download)
+local = ["jarvis[whisper,wakeword,kokoro,system]"]
+dev = ["pytest>=8", "ruff"]
+
+[project.scripts]
+jarvis = "jarvis.__main__:main"
+
+[tool.setuptools.packages.find]
+include = ["jarvis*"]
+
+[tool.ruff]
+line-length = 110

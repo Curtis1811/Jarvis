@@ -1,0 +1,62 @@
+# Copy this file to config.yaml and change what you like.
+# Every stage has a free local option and a paid cloud option.
+
+# How a turn starts:
+#   wakeword      say "Hey Jarvis", then your request (always listening)
+#   push_to_talk  press Enter, then speak
+#   text          type instead of talking (good for testing)
+input_mode: push_to_talk
+wakeword_model: hey_jarvis
+wakeword_threshold: 0.5
+
+# End-of-speech detection. Raise speech_threshold if background noise keeps it listening.
+silence_seconds: 0.9
+max_utterance_seconds: 30
+speech_threshold: 0.015
+
+# ---------- Ears: speech to text ----------
+stt_provider: faster_whisper          # local, free  |  deepgram (paid, fastest)
+stt:
+  faster_whisper:
+    model: small.en                   # tiny.en, base.en, small.en, medium.en, large-v3, distil-large-v3
+    device: auto                      # auto | cuda | cpu
+    compute_type: default             # float16 on NVIDIA, int8 on CPU
+  deepgram:
+    model: nova-3
+
+# ---------- Brain: Claude ----------
+brain_provider: agent                 # agent (can use tools and do things) | chat (talk only, faster)
+brain:
+  agent:
+    model: claude-opus-5-5
+    # Tools Jarvis may use without asking. Add "Bash", "Write" and "Edit" to let it
+    # run commands and change files, only in a folder you are happy for it to touch.
+    allowed_tools: [WebSearch, WebFetch, Read, Glob, Grep]
+    permission_mode: default
+    cwd: null                         # folder it works in, e.g. C:/Users/you/jarvis-workspace
+    max_turns: 25
+    max_budget_usd: 1.0               # stops a single request from spending more than this
+  chat:
+    model: claude-opus-5-5
+    effort: low                       # low keeps spoken replies quick
+
+# ---------- Voice: text to speech ----------
+tts_provider: kokoro                  # kokoro | csm | elevenlabs | openai | system | print
+tts:
+  kokoro:                             # local, free, fast even without a GPU
+    voice: bm_george                  # British male. Try bm_lewis, am_michael, af_heart, bf_emma
+    speed: 1.0
+  csm:                                # local Sesame CSM-1B, most human-sounding local option, needs NVIDIA GPU
+    model_id: sesame/csm-1b
+    device: auto
+  elevenlabs:                         # paid, most natural
+    voice_id: JBFqnCBsd6RMkjVDRZzb    # "George". Find others at elevenlabs.io/app/voice-library
+    model_id: eleven_flash_v2_5
+  openai:                             # paid, cheap, tone is steerable
+    model: gpt-4o-mini-tts
+    voice: onyx
+    instructions: Speak like a calm, witty British butler.
+  system: {}                          # built-in Windows voice, robotic but no setup
+
+# system_prompt: |
+#   Override Jarvis's personality here.

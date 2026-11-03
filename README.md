@@ -1,0 +1,118 @@
+# Jarvis
+
+A voice assistant you talk to. You speak, Claude works on what you asked (it can
+search the web, read files and more), and it answers out loud in a natural voice.
+
+```
+ "Hey Jarvis"  ->  listen  ->  speech to text  ->  Claude  ->  voice  ->  speakers
+  wake word        mic          Whisper or         Agent SDK    Kokoro, CSM,
+                                Deepgram           or API       ElevenLabs, OpenAI
+```
+
+Every stage can be switched in `config.yaml`, with a free local option and a paid
+cloud option for each:
+
+| Stage | Local (free, on your PC) | Paid (cloud) |
+|---|---|---|
+| Wake word | openWakeWord, built-in "Hey Jarvis" | |
+| Ears (speech to text) | `faster_whisper` | `deepgram` |
+| Brain | | `agent` (Claude with tools) or `chat` (talk only) |
+| Voice | `kokoro` (fast), `csm` (Sesame, most human, needs NVIDIA GPU), `system` (Windows voice) | `elevenlabs` (most natural), `openai` (cheap) |
+
+Jarvis starts speaking after the first sentence of Claude's reply, while the rest
+is still being written, so you are not waiting for the whole answer.
+
+### What about Dessa?
+
+Dessa is Block's speech-to-speech model, announced in October 2026. For now it is
+waitlist-only, with no API or download, and it only runs on high-end Macs. It also
+takes audio in and gives audio out, so it cannot read Claude's text replies aloud.
+`tts_provider: dessa` is reserved so it can be added if Block opens it up.
+
+## Setup on Windows
+
+1. **Install Python 3.12** from [python.org](https://www.python.org/downloads/).
+   Tick "Add python.exe to PATH" in the installer. (3.12 is the safest choice for
+   the local voice models.)
+2. **Get the code** and open a terminal (PowerShell) in the folder:
+   ```powershell
+   git clone https://github.com/<you>/jarvis.git
+   cd jarvis
+   py -3.12 -m venv .venv
+   .venv\Scripts\Activate.ps1
+   ```
+   If PowerShell refuses to run the activate script, run
+   `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` once.
+3. **Install Jarvis** with the local extras:
+   ```powershell
+   pip install -e ".[local]"
+   ```
+   For an NVIDIA GPU, also install the CUDA build of PyTorch first, from the
+   command at [pytorch.org](https://pytorch.org/get-started/locally/). Kokoro and
+   CSM then run on the GPU. faster-whisper uses the GPU when CUDA 12 and cuDNN 9 are
+   installed, otherwise set `device: cpu` for it.
+4. **Copy the settings files**:
+   ```powershell
+   copy config.example.yaml config.yaml
+   copy .env.example .env
+   ```
+5. **Sign in to Claude.** Either put an `ANTHROPIC_API_KEY` from
+   [console.anthropic.com](https://console.anthropic.com/) in `.env`, or install
+   [Claude Code](https://claude.com/claude-code) and run `claude login` to use
+   your Claude subscription with the `agent` brain.
+
+## Running it
+
+```powershell
+python -m jarvis --mode text --voice print   # type, read replies: checks Claude works
+python -m jarvis --mode text                  # type, hear replies: checks the voice
+python -m jarvis                              # press Enter and talk
+python -m jarvis --mode wakeword              # always listening for "Hey Jarvis"
+```
+
+Say or type "goodbye" to stop. `--voice`, `--ears` and `--brain` switch providers
+for one run, for example `python -m jarvis --voice elevenlabs`.
+
+## Trying the voices
+
+| Voice | What to do |
+|---|---|
+| `kokoro` | Works after `pip install -e ".[kokoro]"`. Voices: `bm_george`, `bm_lewis` (British male), `am_michael` (American male), `af_heart`, `bf_emma`. |
+| `csm` | `pip install -e ".[csm]"`, accept the terms at [huggingface.co/sesame/csm-1b](https://huggingface.co/sesame/csm-1b), then run `huggingface-cli login`. Needs about 8 GB of GPU memory. Slower to start, most natural local option. |
+| `elevenlabs` | Add `ELEVENLABS_API_KEY` to `.env`. Change `voice_id` to any voice from their library. |
+| `openai` | Add `OPENAI_API_KEY` to `.env`. Change the speaking style with `instructions`. |
+| `system` | `pip install -e ".[system]"`. The built-in Windows voice, no download. |
+
+## Letting Jarvis do things
+
+The `agent` brain is the Claude Agent SDK, the same engine as Claude Code. By
+default it may search the web and read files without asking. Nobody is at a
+keyboard to approve actions, so anything not in `allowed_tools` is refused.
+
+To let it change files or run commands, add `Write`, `Edit` or `Bash` to
+`allowed_tools` and set `cwd` to a folder you are happy for it to work in.
+`max_budget_usd` caps what one request can spend.
+
+You can also connect MCP servers (Google Calendar, Gmail, Spotify, Home Assistant
+and so on) under `brain.agent.mcp_servers`, using the same format as Claude Code.
+
+## Costs, roughly
+
+- Claude: depends on the model and how much work each request does. `max_budget_usd`
+  caps each request. Switch `model` to `claude-sonnet-5-5` or `claude-haiku-5-5` to
+  spend less.
+- ElevenLabs: their Starter and Creator plans cover a lot of casual talking.
+- OpenAI voice and Deepgram: cents per hour of speech.
+- Everything local is free once downloaded.
+
+## Development
+
+```powershell
+pip install -e ".[dev]"
+pytest
+```
+
+The code is small: `jarvis/__main__.py` runs the loop, `brain.py` talks to Claude,
+`speech.py` splits replies into sentences, `audio.py` handles the mic and speakers,
+and `stt/` and `tts/` hold one file per provider. To add a voice, write a class with
+`synthesize(text) -> (audio, sample_rate)` and register it in `jarvis/tts/__init__.py`.
