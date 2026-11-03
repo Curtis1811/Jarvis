@@ -47,10 +47,14 @@ takes audio in and gives audio out, so it cannot read Claude's text replies alou
    ```powershell
    pip install -e ".[local]"
    ```
-   For an NVIDIA GPU, also install the CUDA build of PyTorch first, from the
-   command at [pytorch.org](https://pytorch.org/get-started/locally/). Kokoro and
-   CSM then run on the GPU. faster-whisper uses the GPU when CUDA 12 and cuDNN 9 are
-   installed, otherwise set `device: cpu` for it.
+   On an NVIDIA card (an RTX 4070 or 3070 is plenty), install the CUDA build of
+   PyTorch **before** the line above, so Kokoro and CSM run on the GPU:
+   ```powershell
+   pip install torch --index-url https://download.pytorch.org/whl/cu128
+   pip install nvidia-cublas-cu12 nvidia-cudnn-cu12
+   ```
+   The second line gives faster-whisper the CUDA libraries it needs. If Whisper
+   still fails to load on the GPU, set its `device: cpu` and `model: small.en`.
 4. **Copy the settings files**:
    ```powershell
    copy config.example.yaml config.yaml

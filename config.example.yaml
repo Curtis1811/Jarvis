@@ -18,7 +18,7 @@ speech_threshold: 0.015
 stt_provider: faster_whisper          # local, free  |  deepgram (paid, fastest)
 stt:
   faster_whisper:
-    model: small.en                   # tiny.en, base.en, small.en, medium.en, large-v3, distil-large-v3
+    model: distil-large-v3            # accurate and fast on an RTX 3070/4070. Use small.en on CPU-only PCs
     device: auto                      # auto | cuda | cpu
     compute_type: default             # float16 on NVIDIA, int8 on CPU
   deepgram:
@@ -46,7 +46,7 @@ tts:
   kokoro:                             # local, free, fast even without a GPU
     voice: bm_george                  # British male. Try bm_lewis, am_michael, af_heart, bf_emma
     speed: 1.0
-  csm:                                # local Sesame CSM-1B, most human-sounding local option, needs NVIDIA GPU
+  csm:                                # local Sesame CSM-1B, most human-sounding local option. Fits on a 4070 (12 GB) or 3070 (8 GB)
     model_id: sesame/csm-1b
     device: auto
   elevenlabs:                         # paid, most natural
