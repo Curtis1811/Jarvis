@@ -40,7 +40,9 @@ class Settings:
     stt_provider: str = "faster_whisper"  # faster_whisper | deepgram
     stt: dict[str, Any] = field(default_factory=dict)
 
-    brain_provider: str = "agent"  # agent (Claude Agent SDK, can do things) | chat (talk only)
+    # agent (Claude Agent SDK, can do things) | chat (Claude API, talk only)
+    # | openai_compatible (DeepSeek and others, talk only)
+    brain_provider: str = "agent"
     brain: dict[str, Any] = field(default_factory=dict)
 
     tts_provider: str = "kokoro"  # kokoro | csm | elevenlabs | openai | system | print
@@ -55,6 +57,11 @@ class Settings:
 
 def load_settings(path: str | os.PathLike[str] | None = None) -> Settings:
     load_dotenv()
+    # A blank line like "ANTHROPIC_API_KEY=" in .env would otherwise hide your
+    # Claude subscription login from the agent brain.
+    blank = [k for k, v in os.environ.items() if k.endswith(("_API_KEY", "_AUTH_TOKEN")) and not v.strip()]
+    for name in blank:
+        del os.environ[name]
     config_path = Path(path or os.environ.get("JARVIS_CONFIG", "config.yaml"))
     data: dict[str, Any] = {}
     if config_path.exists():

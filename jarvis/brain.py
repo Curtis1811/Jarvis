@@ -1,11 +1,15 @@
 """The thinking part: sends what you said to Claude and streams the reply back.
 
-Two options:
+Options (set brain_provider in config.yaml):
 - "agent": the Claude Agent SDK (the engine behind Claude Code). Claude can use
   tools such as web search, reading and writing files and running commands, so
   you can ask it to go and do things. Signs in with ANTHROPIC_API_KEY, or with
   your Claude login if you have run `claude login` on this PC.
 - "chat": a plain Claude API conversation. Talk only, no tools, a bit faster.
+  Needs ANTHROPIC_API_KEY.
+- "openai_compatible": any OpenAI-style chat API, such as DeepSeek, OpenRouter,
+  Groq or a local Ollama/LM Studio server. Talk only: it does not get Claude's
+  tools, so it cannot go and do things.
 
 Both keep the conversation going between turns, so follow-up questions work.
 """
@@ -29,7 +33,11 @@ def make_brain(provider: str, options: dict[str, Any], system_prompt: str) -> Br
         return AgentBrain(system_prompt=system_prompt, **options)
     if provider == "chat":
         return ChatBrain(system_prompt=system_prompt, **options)
-    raise ValueError(f"Unknown brain_provider '{provider}'. Use agent or chat.")
+    if provider == "openai_compatible":
+        return OpenAICompatibleBrain(system_prompt=system_prompt, **options)
+    raise ValueError(
+        f"Unknown brain_provider '{provider}'. Use agent, chat or openai_compatible."
+    )
 
 
 class AgentBrain:
@@ -150,3 +158,62 @@ class ChatBrain:
 
     async def close(self) -> None:
         await self._client.close()
+
+
+class OpenAICompatibleBrain:
+    """Talks to any OpenAI-style /chat/completions endpoint, streaming the reply."""
+
+    def __init__(
+        self,
+        system_prompt: str,
+        base_url: str = "https://api.deepseek.com",
+        model: str = "deepseek-chat",
+        api_key_env: str | None = "DEEPSEEK_API_KEY",
+        max_tokens: int = 2048,
+        timeout: float = 120,
+    ) -> None:
+        import httpx
+
+        from .config import require_env
+
+        headers = {"Authorization": f"Bearer {require_env(api_key_env)}"} if api_key_env else {}
+        self._http = httpx.AsyncClient(base_url=base_url.rstrip("/"), headers=headers, timeout=timeout)
+        self._model = model
+        self._max_tokens = max_tokens
+        self._messages: list[dict[str, str]] = [{"role": "system", "content": system_prompt}]
+
+    async def start(self) -> None:
+        return None
+
+    async def ask(self, text: str) -> AsyncIterator[str]:
+        import json
+
+        self._messages.append({"role": "user", "content": text})
+        body = {
+            "model": self._model,
+            "messages": self._messages,
+            "max_tokens": self._max_tokens,
+            "stream": True,
+        }
+        reply: list[str] = []
+        try:
+            async with self._http.stream("POST", "/chat/completions", json=body) as resp:
+                resp.raise_for_status()
+                async for line in resp.aiter_lines():
+                    if not line.startswith("data:"):
+                        continue
+                    data = line[5:].strip()
+                    if data == "[DONE]":
+                        break
+                    choices = json.loads(data).get("choices") or []
+                    delta = (choices[0].get("delta") or {}).get("content") if choices else None
+                    if delta:
+                        reply.append(delta)
+                        yield delta
+        except Exception:
+            self._messages.pop()
+            raise
+        self._messages.append({"role": "assistant", "content": "".join(reply)})
+
+    async def close(self) -> None:
+        await self._http.aclose()

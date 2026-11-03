@@ -16,7 +16,7 @@ cloud option for each:
 |---|---|---|
 | Wake word | openWakeWord, built-in "Hey Jarvis" | |
 | Ears (speech to text) | `faster_whisper` | `deepgram` |
-| Brain | | `agent` (Claude with tools) or `chat` (talk only) |
+| Brain | Ollama or LM Studio via `openai_compatible` (talk only) | `agent` (Claude with tools, works with your Claude subscription), `chat` (Claude API, talk only), DeepSeek and others via `openai_compatible` (talk only) |
 | Voice | `kokoro` (fast), `csm` (Sesame, most human, needs NVIDIA GPU), `system` (Windows voice) | `elevenlabs` (most natural), `openai` (cheap) |
 
 Jarvis starts speaking after the first sentence of Claude's reply, while the rest
@@ -60,10 +60,10 @@ takes audio in and gives audio out, so it cannot read Claude's text replies alou
    copy config.example.yaml config.yaml
    copy .env.example .env
    ```
-5. **Sign in to Claude.** Either put an `ANTHROPIC_API_KEY` from
-   [console.anthropic.com](https://console.anthropic.com/) in `.env`, or install
-   [Claude Code](https://claude.com/claude-code) and run `claude login` to use
-   your Claude subscription with the `agent` brain.
+5. **Sign in to Claude.** Install [Claude Code](https://claude.com/claude-code)
+   and run `claude login` to use your Claude subscription with the default `agent`
+   brain. Leave `ANTHROPIC_API_KEY` blank in `.env`, or it is used instead of
+   your subscription.
 
 ## Running it
 
@@ -86,6 +86,17 @@ for one run, for example `python -m jarvis --voice elevenlabs`.
 | `elevenlabs` | Add `ELEVENLABS_API_KEY` to `.env`. Change `voice_id` to any voice from their library. |
 | `openai` | Add `OPENAI_API_KEY` to `.env`. Change the speaking style with `instructions`. |
 | `system` | `pip install -e ".[system]"`. The built-in Windows voice, no download. |
+
+## Choosing a brain
+
+`agent` is the default and the only brain that can act: search the web, read
+files, run tasks. It runs on your Claude subscription once you have run
+`claude login`, so there is no extra bill.
+
+`openai_compatible` works with DeepSeek (cheap), OpenRouter, Groq, or a model
+running on your own PC through Ollama or LM Studio. It is good for plain
+conversation, but it does not get Claude's tools, so it cannot go and do things.
+Set `base_url`, `model` and `api_key_env` under `brain.openai_compatible`.
 
 ## Letting Jarvis do things
 

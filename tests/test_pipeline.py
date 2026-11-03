@@ -96,3 +96,43 @@ def test_respond_speaks_each_sentence(capsys):
     assert reply.startswith("Right away.")
     spoken = [line for line in capsys.readouterr().out.splitlines() if line.startswith("🔊")]
     assert spoken == ["🔊 Right away. I have looked it up and it is sunny in London."]
+
+
+def test_blank_keys_in_env_do_not_hide_subscription_login(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / ".env").write_text("ANTHROPIC_API_KEY=\n")
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    load_settings()
+    assert "ANTHROPIC_API_KEY" not in __import__("os").environ
+
+
+def test_openai_compatible_brain_streams_and_keeps_history(monkeypatch):
+    import httpx
+
+    from jarvis.brain import make_brain
+
+    seen = []
+
+    def handler(request):
+        import json
+
+        seen.append(json.loads(request.content))
+        sse = (
+            'data: {"choices":[{"delta":{"content":"Hello "}}]}\n\n'
+            'data: {"choices":[{"delta":{"content":"sir."}}]}\n\n'
+            "data: [DONE]\n\n"
+        )
+        return httpx.Response(200, text=sse, headers={"content-type": "text/event-stream"})
+
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "k")
+    brain = make_brain("openai_compatible", {}, "be brief")
+    brain._http = httpx.AsyncClient(base_url="https://x", transport=httpx.MockTransport(handler))
+
+    async def two_turns():
+        a = "".join([c async for c in brain.ask("hi")])
+        b = "".join([c async for c in brain.ask("again")])
+        return a, b
+
+    assert asyncio.run(two_turns()) == ("Hello sir.", "Hello sir.")
+    assert [m["role"] for m in seen[1]["messages"]] == ["system", "user", "assistant", "user"]
+    assert seen[0]["model"] == "deepseek-chat" and seen[0]["stream"] is True
