@@ -67,6 +67,15 @@ takes audio in and gives audio out, so it cannot read Claude's text replies alou
 
 ## Running it
 
+Double-click one of the launchers in the Jarvis folder:
+
+- `Jarvis.bat`: press Enter, then talk.
+- `Jarvis - Hey Jarvis.bat`: hands-free, say "Hey Jarvis" first.
+- `Jarvis - Type.bat`: type instead of talking.
+
+Right-click one and pick "Send to > Desktop (create shortcut)" to start it from
+your desktop. Or run it from a terminal:
+
 ```powershell
 python -m jarvis --mode text --voice print   # type, read replies: checks Claude works
 python -m jarvis --mode text                  # type, hear replies: checks the voice
