@@ -27,7 +27,8 @@ from urllib.parse import parse_qs, urlparse
 
 import yaml
 
-from .config import DEFAULT_SYSTEM_PROMPT, Settings
+from . import personalities as persona_lib
+from .config import Settings
 
 PAGE = Path(__file__).with_name("settings_ui.html")
 
@@ -125,7 +126,7 @@ class ConfigStore:
         data = asdict(Settings())
         for key, value in self.raw().items():
             data[key] = value
-        for section in ("stt", "brain", "tts"):
+        for section in ("stt", "brain", "tts", "personalities"):
             data[section] = data.get(section) or {}
         return data
 
@@ -136,11 +137,19 @@ class ConfigStore:
             raise ValueError(f"Unknown setting(s): {', '.join(unknown)}")
         data = self.raw()
         for key, value in updates.items():
-            if key in ("stt", "brain", "tts") and isinstance(value, dict):
+            if key in ("stt", "brain", "tts", "personalities") and isinstance(value, dict):
                 section = dict(data.get(key) or {})
                 for provider, options in value.items():
-                    section[provider] = options
-                data[key] = section
+                    if key == "personalities":
+                        provider = provider.lower()
+                    if options is None:  # remove (a personality back to how it came)
+                        section.pop(provider, None)
+                    else:
+                        section[provider] = options
+                if section:
+                    data[key] = section
+                else:
+                    data.pop(key, None)
             elif key == "system_prompt" and not (value or "").strip():
                 data.pop(key, None)  # blank means "use the default personality"
             else:
@@ -333,7 +342,8 @@ class App:
             "config_path": str(self.config_path),
             "keys": self.store.env_status(),
             "catalog": CATALOG,
-            "default_system_prompt": DEFAULT_SYSTEM_PROMPT,
+            "personalities": persona_lib.all_personalities(self.store.raw().get("personalities")),
+            "builtin_personalities": list(persona_lib.BUILTIN),
         }
 
     def status(self, since: int) -> dict[str, Any]:
@@ -440,6 +450,9 @@ def main() -> None:
     parser.add_argument("--config", help="path to config.yaml (default: ./config.yaml)")
     parser.add_argument("--no-browser", action="store_true", help="don't open the browser")
     args = parser.parse_args()
+    from .quiet import quiet
+
+    quiet()
     serve(Path.cwd(), args.port, not args.no_browser, Path(args.config) if args.config else None)
 
 

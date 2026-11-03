@@ -87,6 +87,29 @@ for one run, for example `python -m jarvis --voice elevenlabs`.
 | `openai` | Add `OPENAI_API_KEY` to `.env`. Change the speaking style with `instructions`. |
 | `system` | `pip install -e ".[system]"`. The built-in Windows voice, no download. |
 
+## Personalities
+
+Jarvis comes with three personalities, each with its own way of talking and its
+own voice:
+
+| Personality | Style | Kokoro voice | OpenAI voice |
+|---|---|---|---|
+| `jarvis` | Calm, dry-witted British butler | `bm_george` | `onyx` |
+| `friday` | Quick, warm and cheeky, with an Irish turn of phrase | `bf_isabella` | `nova` (Irish accent) |
+| `karen` | Friendly, upbeat and encouraging | `af_heart` | `coral` |
+
+Pick one in the settings app, with `personality:` in `config.yaml`, or for one run
+with `python -m jarvis --personality friday`. In the settings app you can change a
+personality's voice and instructions, or make a new one. The wake word stays
+"Hey Jarvis" for all of them. Kokoro has no Irish voice, so Friday's accent only
+comes through with the OpenAI voice.
+
+To download every Kokoro voice up front, so nothing downloads mid-conversation:
+
+```powershell
+python -m jarvis.tts.kokoro_tts
+```
+
 ## Settings app
 
 Double-click `Jarvis Settings.bat` (or run `python -m jarvis.settings_ui`) and a
@@ -97,7 +120,9 @@ settings page opens in your browser at http://127.0.0.1:8765. From there you can
 - switch the brain between the Claude agent, Claude chat, or DeepSeek, Ollama,
   LM Studio, OpenRouter and Groq, and choose which tools the agent may use;
 - change speech to text, mic sensitivity and the wake word;
-- edit Jarvis's personality and save API keys to `.env`;
+- switch personality (Jarvis, Friday, Karen or your own) and edit its voice and
+  instructions;
+- save API keys to `.env`;
 - start and stop Jarvis, watch what it hears and says, and press **Talk** or type
   to it.
 

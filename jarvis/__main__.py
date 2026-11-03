@@ -69,6 +69,8 @@ async def respond(brain, voice: Voice, text: str) -> str:
 
 
 async def main_async(settings: Settings) -> None:
+    persona = settings.apply_personality()
+    name = persona["name"]
     mode = settings.input_mode
     speaker = None
     if settings.tts_provider != "print":
@@ -76,7 +78,7 @@ async def main_async(settings: Settings) -> None:
 
         speaker = Speaker()
 
-    print(f"Loading voice ({settings.tts_provider})...")
+    print(f"Personality: {name}. Loading voice ({settings.tts_provider})...")
     voice = Voice(settings, speaker)
 
     stt = mic = wake = None
@@ -104,7 +106,7 @@ async def main_async(settings: Settings) -> None:
         "push_to_talk": "Press Enter, then speak. Type 'exit' to quit.",
         "wakeword": "Say 'Hey Jarvis', then your request. Ctrl+C to quit.",
     }
-    print(f"\nJarvis is ready. {prompts.get(mode, '')}\n")
+    print(f"\n{name} is ready. {prompts.get(mode, '')}\n")
 
     try:
         while True:
@@ -159,7 +161,11 @@ def main() -> None:
     parser.add_argument("--voice", help="override tts_provider, e.g. kokoro, elevenlabs, print")
     parser.add_argument("--ears", help="override stt_provider, e.g. faster_whisper, deepgram")
     parser.add_argument("--brain", help="override brain_provider: agent or chat")
+    parser.add_argument("--personality", help="override personality, e.g. jarvis, friday, karen")
     args = parser.parse_args()
+    from .quiet import quiet
+
+    quiet()
 
     settings = load_settings(args.config)
     if args.mode:
@@ -170,6 +176,8 @@ def main() -> None:
         settings.stt_provider = args.ears
     if args.brain:
         settings.brain_provider = args.brain
+    if args.personality:
+        settings.personality = args.personality
     try:
         asyncio.run(main_async(settings))
     except KeyboardInterrupt:
