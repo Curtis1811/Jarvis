@@ -14,13 +14,10 @@ from typing import Any
 import yaml
 from dotenv import load_dotenv
 
-DEFAULT_SYSTEM_PROMPT = (
-    "You are Jarvis, a voice assistant. Everything you write is read aloud by a "
-    "text-to-speech voice, so answer in short, natural spoken sentences. Do not use "
-    "markdown, bullet points, tables, code blocks or emoji. Spell out symbols. When a "
-    "task needs real work, do it with your tools, then say briefly what you did and "
-    "what you found. If something would be long, give the short version and offer more."
-)
+from .personalities import BUILTIN as _BUILTIN_PERSONALITIES
+
+# Jarvis's instructions. Other personalities live in personalities.py.
+DEFAULT_SYSTEM_PROMPT = _BUILTIN_PERSONALITIES["jarvis"]["system_prompt"]
 
 
 @dataclass
@@ -48,7 +45,26 @@ class Settings:
     tts_provider: str = "kokoro"  # kokoro | csm | elevenlabs | openai | system | print
     tts: dict[str, Any] = field(default_factory=dict)
 
-    system_prompt: str = DEFAULT_SYSTEM_PROMPT
+    # Who Jarvis is: jarvis | friday | karen, or one you add under `personalities`.
+    # Each personality has its own instructions and voice.
+    personality: str = "jarvis"
+    personalities: dict[str, Any] = field(default_factory=dict)
+
+    # Set this to replace the personality's instructions entirely.
+    system_prompt: str = ""
+
+    def apply_personality(self) -> dict[str, Any]:
+        """Use the chosen personality's instructions and voice. Returns the personality."""
+        from .personalities import get
+
+        persona = get(self.personality, self.personalities)
+        if not (self.system_prompt or "").strip():
+            self.system_prompt = persona["system_prompt"]
+        tts = dict(self.tts or {})
+        for provider, options in (persona.get("tts") or {}).items():
+            tts[provider] = {**(tts.get(provider) or {}), **(options or {})}
+        self.tts = tts
+        return persona
 
     def section(self, name: str, provider: str) -> dict[str, Any]:
         """Options for one provider, e.g. settings.section("tts", "elevenlabs")."""

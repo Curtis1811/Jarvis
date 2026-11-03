@@ -75,17 +75,32 @@
 </header>
 
 <main>
+  <section class="wide">
+    <h2>Personality</h2>
+    <p class="hint">Who you are talking to. Each personality has its own instructions and its own voice: change the voice in the Voice box below and it is saved to this personality.</p>
+    <div class="row">
+      <select id="personality" aria-label="Personality"></select>
+      <button class="shrink" id="new-persona">New personality</button>
+      <button class="shrink" id="reset-persona">Reset to original</button>
+    </div>
+    <p class="hint" id="persona-desc" style="margin-top:8px"></p>
+    <label for="persona-prompt">Instructions</label>
+    <textarea id="persona-prompt"></textarea>
+    <p class="hint" id="prompt-override" hidden style="margin-top:8px">config.yaml has its own system_prompt, which overrides every personality. Saving here removes it so personalities work.</p>
+    <p class="hint" style="margin-top:8px">Keep the part about short spoken sentences, since everything is read aloud. The wake word is still "Hey Jarvis" for every personality.</p>
+  </section>
+
   <section>
     <h2>Voice</h2>
-    <p class="hint">How Jarvis sounds. Press Test to hear it in this browser.</p>
+    <p class="hint">How <span class="persona-name">Jarvis</span> sounds. Press Test to hear it in this browser.</p>
     <label for="tts_provider">Voice engine</label>
     <select id="tts_provider" data-path="tts_provider" data-options="tts_providers"></select>
 
     <div class="sub" data-show="tts_provider=kokoro">
       <label for="kokoro-voice">Kokoro voice</label>
-      <select id="kokoro-voice" data-path="tts.kokoro.voice"></select>
+      <select id="kokoro-voice" data-path="tts.kokoro.voice" data-persona></select>
       <label for="kokoro-speed">Speed <span id="kokoro-speed-val"></span></label>
-      <input id="kokoro-speed" type="range" min="0.6" max="1.6" step="0.05" data-path="tts.kokoro.speed" data-type="number">
+      <input id="kokoro-speed" type="range" min="0.6" max="1.6" step="0.05" data-path="tts.kokoro.speed" data-type="number" data-persona>
     </div>
     <div class="sub" data-show="tts_provider=csm">
       <label for="csm-model">Model</label>
@@ -95,19 +110,19 @@
     </div>
     <div class="sub" data-show="tts_provider=elevenlabs">
       <label for="el-voice">Voice ID</label>
-      <input id="el-voice" type="text" data-path="tts.elevenlabs.voice_id" placeholder="from elevenlabs.io voice library">
+      <input id="el-voice" type="text" data-path="tts.elevenlabs.voice_id" data-persona placeholder="from elevenlabs.io voice library">
       <label for="el-model">Model</label>
       <input id="el-model" type="text" list="el-models" data-path="tts.elevenlabs.model_id">
       <datalist id="el-models" data-options="elevenlabs_models"></datalist>
     </div>
     <div class="sub" data-show="tts_provider=openai">
       <label for="oa-voice">Voice</label>
-      <select id="oa-voice" data-path="tts.openai.voice" data-options="openai_voices"></select>
+      <select id="oa-voice" data-path="tts.openai.voice" data-options="openai_voices" data-persona></select>
       <label for="oa-model">Model</label>
       <input id="oa-model" type="text" list="oa-models" data-path="tts.openai.model">
       <datalist id="oa-models" data-options="openai_tts_models"></datalist>
       <label for="oa-instr">Speaking style</label>
-      <input id="oa-instr" type="text" data-path="tts.openai.instructions">
+      <input id="oa-instr" type="text" data-path="tts.openai.instructions" data-persona>
     </div>
     <label for="preview-text">Test sentence</label>
     <div class="row">
@@ -197,13 +212,6 @@
   </section>
 
   <section class="wide">
-    <h2>Personality</h2>
-    <p class="hint">Instructions Jarvis follows. Keep the part about short spoken sentences, since everything is read aloud.</p>
-    <textarea id="system_prompt" data-path="system_prompt"></textarea>
-    <div class="row" style="margin-top:8px"><span></span><button class="shrink" id="reset-prompt">Reset to default</button></div>
-  </section>
-
-  <section class="wide">
     <h2>Jarvis console</h2>
     <p class="hint" id="console-hint">Start Jarvis to see what it hears and says.</p>
     <div id="console" role="log" aria-live="polite"></div>
@@ -219,6 +227,7 @@
 <script>
 const $ = (sel) => document.querySelector(sel);
 let state = null, since = 0, running = false, runningMode = null, dirty = false, savedWhileRunning = false;
+let personas = {}, persona = "jarvis", edited = new Set();
 
 async function api(path, body) {
   const opts = body === undefined ? {} : {method: "POST", headers: {"Content-Type": "application/json"},
@@ -286,12 +295,61 @@ function render() {
     if (el.dataset.path === "tts.kokoro.speed" && v == null) v = 1.0;
     el.value = v ?? "";
   });
-  if (!$("#system_prompt").value) $("#system_prompt").value = state.default_system_prompt;
+  personas = structuredClone(state.personalities); edited = new Set();
+  persona = personas[cfg.personality] ? cfg.personality : "jarvis";
+  renderPersonaPicker();
+  loadPersona(persona);
+  $("#prompt-override").hidden = !(cfg.system_prompt || "").trim();
   $("#run-mode").value = cfg.input_mode;
   if (!$("#preview-text").value) $("#preview-text").value = "Good evening. All systems are online, and I am ready when you are.";
   renderKeys();
   updateVisibility();
   dirty = false;
+}
+
+function renderPersonaPicker() {
+  const sel = $("#personality"); sel.innerHTML = "";
+  for (const [key, p] of Object.entries(personas)) sel.append(new Option(p.name || key, key));
+  sel.value = persona;
+}
+
+function setValue(el, v) {
+  if (el.tagName === "SELECT" && v != null && v !== "" && ![...el.options].some(o => o.value === String(v)))
+    el.append(new Option(v + " (custom)", v));
+  el.value = v ?? "";
+}
+
+// Show a personality's instructions and voice in the form.
+function loadPersona(key) {
+  const p = personas[key];
+  $("#persona-prompt").value = p.system_prompt || "";
+  $("#persona-desc").textContent = p.description || "";
+  document.querySelectorAll(".persona-name").forEach(el => el.textContent = p.name || key);
+  document.querySelectorAll("[data-persona]").forEach(el => {
+    const [, provider, field] = el.dataset.path.split(".");
+    let v = p.tts?.[provider]?.[field] ?? getPath(state.config, el.dataset.path);
+    if (field === "speed" && v == null) v = 1.0;
+    setValue(el, v);
+  });
+  $("#reset-persona").textContent = state.builtin_personalities.includes(key) ? "Reset to original" : "Delete";
+  updateVisibility();
+}
+
+// Keep the form's instructions and voice in that personality.
+function storePersona(key) {
+  const p = personas[key], tts = structuredClone(p.tts || {});
+  document.querySelectorAll("[data-persona]").forEach(el => {
+    const [, provider, field] = el.dataset.path.split(".");
+    if (el.value === "") return;
+    const had = p.tts?.[provider]?.[field], fallback = getPath(state.config, el.dataset.path) ?? (field === "speed" ? 1 : "");
+    if (had === undefined && String(el.value) === String(fallback)) return; // still the shared setting
+    tts[provider] = tts[provider] || {};
+    tts[provider][field] = el.dataset.type === "number" ? Number(el.value) : el.value;
+  });
+  const changed = JSON.stringify(tts) !== JSON.stringify(p.tts || {}) ||
+                  $("#persona-prompt").value !== (p.system_prompt || "");
+  p.tts = tts; p.system_prompt = $("#persona-prompt").value;
+  if (changed) edited.add(key);
 }
 
 function renderKeys() {
@@ -331,7 +389,16 @@ function collect() {
     else v = el.value;
     setPath(out, el.dataset.path, v);
   });
-  if (out.system_prompt.trim() === state.default_system_prompt.trim()) out.system_prompt = "";
+  // Voice choices belong to the personality, not the shared voice settings.
+  storePersona(persona);
+  document.querySelectorAll("[data-persona]").forEach(el => {
+    const v = getPath(state.config, el.dataset.path);
+    if (v !== undefined) setPath(out, el.dataset.path, v);
+  });
+  out.personality = persona;
+  out.personalities = {};
+  for (const k of edited) out.personalities[k] = personas[k];
+  out.system_prompt = "";
   return out;
 }
 
@@ -425,7 +492,34 @@ $("#oc-preset").onchange = (e) => {
   $("#oc-url").value = p.base_url; $("#oc-model").value = p.model; $("#oc-key").value = p.api_key_env || "";
   dirty = true;
 };
-$("#reset-prompt").onclick = () => { $("#system_prompt").value = state.default_system_prompt; dirty = true; };
+$("#personality").onchange = (e) => {
+  storePersona(persona); persona = e.target.value; loadPersona(persona); dirty = true;
+};
+$("#persona-prompt").oninput = () => { dirty = true; };
+$("#new-persona").onclick = () => {
+  const name = (prompt("Name for the new personality (e.g. Edith):") || "").trim();
+  if (!name) return;
+  const key = name.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "");
+  if (!key || personas[key]) { toast("That name is taken.", true); return; }
+  storePersona(persona);
+  const from = personas[persona];
+  personas[key] = {name, description: "Your own personality",
+                   system_prompt: (from.system_prompt || "").replaceAll(from.name || "Jarvis", name),
+                   tts: structuredClone(from.tts || {})};
+  edited.add(key); persona = key; renderPersonaPicker(); loadPersona(key); dirty = true;
+  toast(`Created ${name}. Change the voice and instructions, then Save.`);
+};
+$("#reset-persona").onclick = async () => {
+  const p = personas[persona], builtin = state.builtin_personalities.includes(persona);
+  if (!confirm(builtin ? `Put ${p.name} back to how it came?` : `Delete ${p.name}?`)) return;
+  try {
+    const cfg = collect();
+    cfg.personalities[persona] = null;
+    if (!builtin) cfg.personality = "jarvis";
+    state = await api("/api/config", cfg); render();
+    toast(builtin ? `${p.name} reset` : `${p.name} deleted`);
+  } catch (e) { toast(e.message, true); }
+};
 $("#save").onclick = save;
 $("#start").onclick = start;
 $("#stop").onclick = stop;

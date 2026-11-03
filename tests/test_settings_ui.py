@@ -125,3 +125,17 @@ def test_other_websites_cannot_use_the_api(server):
     with pytest.raises(urllib.error.HTTPError) as err:
         urllib.request.urlopen(req)
     assert err.value.code == 415
+
+
+def test_personality_voice_and_prompt_are_saved_and_reset(folder):
+    store = store_for(folder)
+    store.save({"personality": "friday",
+                "personalities": {"Friday": {"tts": {"kokoro": {"voice": "bf_emma"}}}}})
+    s = load_settings(folder / "config.yaml")
+    s.apply_personality()
+    assert s.section("tts", "kokoro")["voice"] == "bf_emma" and s.system_prompt.startswith("You are Friday")
+    store.save({"personalities": {"friday": None}})
+    s = load_settings(folder / "config.yaml")
+    s.apply_personality()
+    assert s.section("tts", "kokoro")["voice"] == "bf_isabella"
+    assert "personalities" not in yaml.safe_load((folder / "config.yaml").read_text())

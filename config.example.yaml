@@ -14,6 +14,18 @@ silence_seconds: 0.9
 max_utterance_seconds: 30
 speech_threshold: 0.015
 
+# ---------- Personality ----------
+# Who you are talking to. Each one has its own instructions and voice:
+#   jarvis   calm, dry-witted British butler (Kokoro bm_george)
+#   friday   quick, warm and cheeky, Irish turn of phrase (Kokoro bf_isabella)
+#   karen    friendly, upbeat and encouraging (Kokoro af_heart)
+# The personality's voice wins over the voice under tts below. Change a built-in
+# one or add your own under `personalities` (see jarvis/personalities.py), e.g.
+#   personalities:
+#     friday:
+#       tts: {kokoro: {voice: bf_emma}}
+personality: jarvis
+
 # ---------- Ears: speech to text ----------
 stt_provider: faster_whisper          # local, free  |  deepgram (paid, fastest)
 stt:
@@ -53,7 +65,7 @@ brain:
 tts_provider: kokoro                  # kokoro | csm | elevenlabs | openai | system | print
 tts:
   kokoro:                             # local, free, fast even without a GPU
-    voice: bm_george                  # British male. Try bm_lewis, am_michael, af_heart, bf_emma
+    voice: bm_george                  # used when the personality has no Kokoro voice of its own
     speed: 1.0
   csm:                                # local Sesame CSM-1B, most human-sounding local option. Fits on a 4070 (12 GB) or 3070 (8 GB)
     model_id: sesame/csm-1b
@@ -68,4 +80,4 @@ tts:
   system: {}                          # built-in Windows voice, robotic but no setup
 
 # system_prompt: |
-#   Override Jarvis's personality here.
+#   Replaces every personality's instructions. Usually better to edit a personality.
