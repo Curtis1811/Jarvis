@@ -1,0 +1,449 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Jarvis Settings</title>
+<style>
+  :root {
+    --bg: #f4f5f7; --card: #ffffff; --text: #1b1f24; --muted: #5f6b7a; --line: #dfe3e8;
+    --accent: #1f6feb; --accent-text: #ffffff; --good: #1a7f37; --bad: #cf222e; --console: #0d1117;
+    --console-text: #d1d9e0; --field: #ffffff;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0d1117; --card: #161b22; --text: #e6edf3; --muted: #8d96a0; --line: #30363d;
+      --accent: #2f81f7; --good: #3fb950; --bad: #f85149; --console: #010409; --field: #0d1117;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 15px/1.45 "Segoe UI", system-ui, -apple-system, sans-serif; }
+  header { position: sticky; top: 0; z-index: 2; background: var(--card); border-bottom: 1px solid var(--line);
+           padding: 12px 16px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  header h1 { font-size: 18px; margin: 0 12px 0 0; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--muted); display: inline-block; }
+  .dot.on { background: var(--good); box-shadow: 0 0 0 3px color-mix(in srgb, var(--good) 25%, transparent); }
+  #status { color: var(--muted); margin-right: auto; }
+  main { max-width: 1100px; margin: 0 auto; padding: 16px; display: grid; gap: 16px;
+         grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
+  section { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 16px; }
+  section.wide { grid-column: 1 / -1; }
+  h2 { font-size: 16px; margin: 0 0 4px; }
+  .hint { color: var(--muted); font-size: 13px; margin: 0 0 12px; }
+  label { display: block; margin: 10px 0 4px; font-weight: 600; font-size: 13px; }
+  input[type=text], input[type=number], input[type=password], select, textarea {
+    width: 100%; padding: 7px 9px; border: 1px solid var(--line); border-radius: 6px;
+    background: var(--field); color: var(--text); font: inherit; }
+  textarea { min-height: 110px; resize: vertical; }
+  input[type=range] { width: 100%; }
+  .row { display: flex; gap: 8px; align-items: center; }
+  .row > * { flex: 1; }
+  .row > .shrink { flex: 0 0 auto; }
+  button { padding: 7px 14px; border-radius: 6px; border: 1px solid var(--line); background: var(--card);
+           color: var(--text); font: inherit; cursor: pointer; white-space: nowrap; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
+  button.danger { color: var(--bad); }
+  button:disabled { opacity: .5; cursor: default; }
+  .checks { display: flex; flex-wrap: wrap; gap: 6px 14px; }
+  .checks label { display: flex; gap: 6px; align-items: center; font-weight: 400; margin: 0; }
+  .sub { border-left: 3px solid var(--line); padding-left: 12px; margin-top: 8px; }
+  .key { display: grid; grid-template-columns: 1fr auto; gap: 6px; align-items: center; margin-top: 8px; }
+  .badge { font-size: 12px; padding: 2px 8px; border-radius: 10px; border: 1px solid var(--line); color: var(--muted); }
+  .badge.set { color: var(--good); border-color: var(--good); }
+  #console { background: var(--console); color: var(--console-text); border-radius: 8px; padding: 10px;
+             height: 300px; overflow: auto; white-space: pre-wrap; word-break: break-word;
+             font: 13px/1.4 Consolas, "Cascadia Mono", monospace; }
+  #toast { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); background: var(--text);
+           color: var(--bg); padding: 9px 16px; border-radius: 8px; opacity: 0; transition: opacity .2s;
+           pointer-events: none; max-width: calc(100% - 32px); }
+  #toast.show { opacity: 1; }
+  #toast.error { background: var(--bad); color: #fff; }
+  #restart { display: none; }
+  @media (max-width: 600px) { header h1 { width: 100%; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>Jarvis</h1>
+  <span class="dot" id="dot"></span><span id="status">Stopped</span>
+  <select id="run-mode" aria-label="How to talk to Jarvis" style="width:auto"></select>
+  <button class="primary" id="start">Start Jarvis</button>
+  <button class="danger" id="stop" disabled>Stop</button>
+  <button id="restart" class="primary">Restart to apply</button>
+  <button class="primary" id="save">Save settings</button>
+</header>
+
+<main>
+  <section>
+    <h2>Voice</h2>
+    <p class="hint">How Jarvis sounds. Press Test to hear it in this browser.</p>
+    <label for="tts_provider">Voice engine</label>
+    <select id="tts_provider" data-path="tts_provider" data-options="tts_providers"></select>
+
+    <div class="sub" data-show="tts_provider=kokoro">
+      <label for="kokoro-voice">Kokoro voice</label>
+      <select id="kokoro-voice" data-path="tts.kokoro.voice"></select>
+      <label for="kokoro-speed">Speed <span id="kokoro-speed-val"></span></label>
+      <input id="kokoro-speed" type="range" min="0.6" max="1.6" step="0.05" data-path="tts.kokoro.speed" data-type="number">
+    </div>
+    <div class="sub" data-show="tts_provider=csm">
+      <label for="csm-model">Model</label>
+      <input id="csm-model" type="text" data-path="tts.csm.model_id">
+      <label for="csm-device">Device</label>
+      <select id="csm-device" data-path="tts.csm.device" data-options="devices"></select>
+    </div>
+    <div class="sub" data-show="tts_provider=elevenlabs">
+      <label for="el-voice">Voice ID</label>
+      <input id="el-voice" type="text" data-path="tts.elevenlabs.voice_id" placeholder="from elevenlabs.io voice library">
+      <label for="el-model">Model</label>
+      <input id="el-model" type="text" list="el-models" data-path="tts.elevenlabs.model_id">
+      <datalist id="el-models" data-options="elevenlabs_models"></datalist>
+    </div>
+    <div class="sub" data-show="tts_provider=openai">
+      <label for="oa-voice">Voice</label>
+      <select id="oa-voice" data-path="tts.openai.voice" data-options="openai_voices"></select>
+      <label for="oa-model">Model</label>
+      <input id="oa-model" type="text" list="oa-models" data-path="tts.openai.model">
+      <datalist id="oa-models" data-options="openai_tts_models"></datalist>
+      <label for="oa-instr">Speaking style</label>
+      <input id="oa-instr" type="text" data-path="tts.openai.instructions">
+    </div>
+    <label for="preview-text">Test sentence</label>
+    <div class="row">
+      <input id="preview-text" type="text">
+      <button class="shrink" id="preview">Test voice</button>
+    </div>
+    <audio id="player" hidden></audio>
+  </section>
+
+  <section>
+    <h2>Brain</h2>
+    <p class="hint">Who answers. Only the Claude agent can do things like search the web or read files.</p>
+    <label for="brain_provider">Brain</label>
+    <select id="brain_provider" data-path="brain_provider" data-options="brain_providers"></select>
+
+    <div class="sub" data-show="brain_provider=agent">
+      <label for="agent-model">Claude model</label>
+      <input id="agent-model" type="text" list="claude-models" data-path="brain.agent.model">
+      <label>Tools Jarvis may use without asking</label>
+      <div class="checks" id="agent-tools" data-path="brain.agent.allowed_tools" data-type="list"></div>
+      <label for="agent-cwd">Work folder (needed before allowing Write, Edit or Bash)</label>
+      <input id="agent-cwd" type="text" data-path="brain.agent.cwd" data-type="nullable" placeholder="e.g. D:/Jarvis/workspace">
+      <div class="row">
+        <div><label for="agent-budget">Max $ per request</label>
+          <input id="agent-budget" type="number" min="0" step="0.25" data-path="brain.agent.max_budget_usd" data-type="number"></div>
+        <div><label for="agent-turns">Max steps per request</label>
+          <input id="agent-turns" type="number" min="1" step="1" data-path="brain.agent.max_turns" data-type="number"></div>
+      </div>
+    </div>
+    <div class="sub" data-show="brain_provider=chat">
+      <label for="chat-model">Claude model</label>
+      <input id="chat-model" type="text" list="claude-models" data-path="brain.chat.model">
+      <label for="chat-effort">Effort</label>
+      <select id="chat-effort" data-path="brain.chat.effort" data-options="efforts"></select>
+    </div>
+    <datalist id="claude-models" data-options="claude_models"></datalist>
+    <div class="sub" data-show="brain_provider=openai_compatible">
+      <label for="oc-preset">Preset</label>
+      <select id="oc-preset"><option value="">Pick one to fill in the fields below</option></select>
+      <label for="oc-url">Server URL</label>
+      <input id="oc-url" type="text" data-path="brain.openai_compatible.base_url">
+      <label for="oc-model">Model</label>
+      <input id="oc-model" type="text" data-path="brain.openai_compatible.model">
+      <label for="oc-key">API key name in .env (blank for local servers)</label>
+      <input id="oc-key" type="text" data-path="brain.openai_compatible.api_key_env" data-type="nullable">
+    </div>
+  </section>
+
+  <section>
+    <h2>Ears and listening</h2>
+    <p class="hint">How Jarvis hears you.</p>
+    <label for="input_mode">Default way to talk</label>
+    <select id="input_mode" data-path="input_mode" data-options="input_modes"></select>
+    <label for="stt_provider">Speech to text</label>
+    <select id="stt_provider" data-path="stt_provider" data-options="stt_providers"></select>
+    <div class="sub" data-show="stt_provider=faster_whisper">
+      <div class="row">
+        <div><label for="fw-model">Whisper model</label>
+          <select id="fw-model" data-path="stt.faster_whisper.model" data-options="whisper_models"></select></div>
+        <div><label for="fw-device">Device</label>
+          <select id="fw-device" data-path="stt.faster_whisper.device" data-options="devices"></select></div>
+      </div>
+    </div>
+    <div class="sub" data-show="stt_provider=deepgram">
+      <label for="dg-model">Deepgram model</label>
+      <input id="dg-model" type="text" data-path="stt.deepgram.model">
+    </div>
+    <div class="row">
+      <div><label for="silence">Pause that ends speech (s)</label>
+        <input id="silence" type="number" min="0.3" max="5" step="0.1" data-path="silence_seconds" data-type="number"></div>
+      <div><label for="threshold">Mic sensitivity level</label>
+        <input id="threshold" type="number" min="0.001" max="0.2" step="0.001" data-path="speech_threshold" data-type="number"></div>
+    </div>
+    <div class="row">
+      <div><label for="wake-th">Wake word strictness (0-1)</label>
+        <input id="wake-th" type="number" min="0.1" max="0.95" step="0.05" data-path="wakeword_threshold" data-type="number"></div>
+      <div><label for="max-utt">Longest request (s)</label>
+        <input id="max-utt" type="number" min="5" max="120" step="1" data-path="max_utterance_seconds" data-type="number"></div>
+    </div>
+    <p class="hint" style="margin-top:8px">Raise the mic level if background noise keeps Jarvis listening.</p>
+  </section>
+
+  <section>
+    <h2>API keys</h2>
+    <p class="hint">Saved to .env on this PC. Only needed for the paid options you pick. Keys are never shown again here.</p>
+    <div id="keys"></div>
+  </section>
+
+  <section class="wide">
+    <h2>Personality</h2>
+    <p class="hint">Instructions Jarvis follows. Keep the part about short spoken sentences, since everything is read aloud.</p>
+    <textarea id="system_prompt" data-path="system_prompt"></textarea>
+    <div class="row" style="margin-top:8px"><span></span><button class="shrink" id="reset-prompt">Reset to default</button></div>
+  </section>
+
+  <section class="wide">
+    <h2>Jarvis console</h2>
+    <p class="hint" id="console-hint">Start Jarvis to see what it hears and says.</p>
+    <div id="console" role="log" aria-live="polite"></div>
+    <div class="row" style="margin-top:8px">
+      <input id="say" type="text" placeholder="Type a message to Jarvis" disabled>
+      <button class="shrink" id="send" disabled>Send</button>
+      <button class="shrink primary" id="talk" disabled>Talk</button>
+    </div>
+  </section>
+</main>
+<div id="toast" role="status"></div>
+
+<script>
+const $ = (sel) => document.querySelector(sel);
+let state = null, since = 0, running = false, runningMode = null, dirty = false, savedWhileRunning = false;
+
+async function api(path, body) {
+  const opts = body === undefined ? {} : {method: "POST", headers: {"Content-Type": "application/json"},
+                                          body: JSON.stringify(body)};
+  const res = await fetch(path, opts);
+  if (!res.ok) {
+    let msg = res.statusText;
+    try { msg = (await res.json()).error || msg; } catch (e) {}
+    throw new Error(msg);
+  }
+  return res.headers.get("Content-Type")?.startsWith("application/json") ? res.json() : res.blob();
+}
+
+function toast(msg, error = false) {
+  const t = $("#toast");
+  t.textContent = msg; t.className = "show" + (error ? " error" : "");
+  clearTimeout(toast.timer); toast.timer = setTimeout(() => t.className = "", error ? 6000 : 2500);
+}
+
+const getPath = (obj, path) => path.split(".").reduce((o, k) => (o == null ? undefined : o[k]), obj);
+function setPath(obj, path, value) {
+  const keys = path.split("."); let o = obj;
+  for (const k of keys.slice(0, -1)) { if (o[k] == null || typeof o[k] !== "object") o[k] = {}; o = o[k]; }
+  o[keys.at(-1)] = value;
+}
+
+function fillOptions(el, choices, current) {
+  el.innerHTML = "";
+  const add = (parent, value, label) => {
+    const o = document.createElement("option"); o.value = value; o.textContent = label ?? value; parent.append(o);
+  };
+  if (Array.isArray(choices)) choices.forEach(v => add(el, v));
+  else for (const [k, v] of Object.entries(choices)) {
+    if (Array.isArray(v)) { // grouped
+      const g = document.createElement("optgroup"); g.label = k; v.forEach(x => add(g, x)); el.append(g);
+    } else add(el, k, v);
+  }
+  // keep a value from config.yaml even if it is not in the list
+  if (el.tagName === "SELECT" && current != null && current !== "" &&
+      ![...el.options].some(o => o.value === String(current))) add(el, current, current + " (custom)");
+}
+
+function render() {
+  const cfg = state.config, cat = state.catalog;
+  document.querySelectorAll("[data-options]").forEach(el =>
+    fillOptions(el, cat[el.dataset.options], el.dataset.path ? getPath(cfg, el.dataset.path) : null));
+  fillOptions($("#kokoro-voice"), cat.kokoro_voices, getPath(cfg, "tts.kokoro.voice"));
+  fillOptions($("#run-mode"), cat.input_modes);
+  const preset = $("#oc-preset");
+  preset.length = 1;
+  Object.keys(cat.openai_compatible_presets).forEach(k => { const o = new Option(k, k); preset.append(o); });
+
+  const tools = $("#agent-tools"); tools.innerHTML = "";
+  const allowed = getPath(cfg, "brain.agent.allowed_tools") || [];
+  for (const t of cat.agent_tools) {
+    const l = document.createElement("label");
+    l.innerHTML = `<input type="checkbox" value="${t}"> ${t}`;
+    l.querySelector("input").checked = allowed.includes(t);
+    tools.append(l);
+  }
+
+  document.querySelectorAll("[data-path]").forEach(el => {
+    if (el.dataset.type === "list") return;
+    let v = getPath(cfg, el.dataset.path);
+    if (el.dataset.path === "tts.kokoro.speed" && v == null) v = 1.0;
+    el.value = v ?? "";
+  });
+  if (!$("#system_prompt").value) $("#system_prompt").value = state.default_system_prompt;
+  $("#run-mode").value = cfg.input_mode;
+  if (!$("#preview-text").value) $("#preview-text").value = "Good evening. All systems are online, and I am ready when you are.";
+  renderKeys();
+  updateVisibility();
+  dirty = false;
+}
+
+function renderKeys() {
+  const box = $("#keys"); box.innerHTML = "";
+  for (const [name, label] of Object.entries(state.catalog.api_keys)) {
+    const set = state.keys[name];
+    const div = document.createElement("div");
+    div.innerHTML = `<label for="key-${name}">${label} <span class="badge ${set ? "set" : ""}">${set ? "set" : "not set"}</span></label>
+      <div class="key"><input type="password" id="key-${name}" placeholder="${name}" autocomplete="off">
+      <button data-key="${name}">${set ? "Replace" : "Save"}</button></div>`;
+    box.append(div);
+  }
+  box.querySelectorAll("button[data-key]").forEach(b => b.onclick = async () => {
+    const name = b.dataset.key, input = $("#key-" + name);
+    try {
+      state.keys = (await api("/api/keys", {[name]: input.value})).keys;
+      toast(input.value ? `${name} saved` : `${name} cleared`); renderKeys();
+    } catch (e) { toast(e.message, true); }
+  });
+}
+
+function updateVisibility() {
+  document.querySelectorAll("[data-show]").forEach(el => {
+    const [path, value] = el.dataset.show.split("=");
+    el.hidden = $(`[data-path="${path}"]`).value !== value;
+  });
+  $("#kokoro-speed-val").textContent = Number($("#kokoro-speed").value).toFixed(2) + "x";
+}
+
+function collect() {
+  const out = structuredClone(state.config);
+  document.querySelectorAll("[data-path]").forEach(el => {
+    let v;
+    if (el.dataset.type === "list") v = [...el.querySelectorAll("input:checked")].map(i => i.value);
+    else if (el.dataset.type === "number") v = el.value === "" ? null : Number(el.value);
+    else if (el.dataset.type === "nullable") v = el.value.trim() || null;
+    else v = el.value;
+    setPath(out, el.dataset.path, v);
+  });
+  if (out.system_prompt.trim() === state.default_system_prompt.trim()) out.system_prompt = "";
+  return out;
+}
+
+async function save() {
+  const cfg = collect();
+  const tools = cfg.brain?.agent?.allowed_tools || [];
+  if (cfg.brain_provider === "agent" && tools.some(t => ["Write", "Edit", "Bash"].includes(t)) && !cfg.brain.agent.cwd) {
+    toast("Set a work folder before letting Jarvis write files or run commands.", true); return false;
+  }
+  try {
+    state = await api("/api/config", cfg);
+    render();
+    if (running) { savedWhileRunning = true; $("#restart").style.display = "inline-block"; }
+    toast(running ? "Saved. Restart Jarvis to use the new settings." : "Saved");
+    return true;
+  } catch (e) { toast(e.message, true); return false; }
+}
+
+async function start() {
+  if (dirty && !(await save())) return;
+  try {
+    since = 0; $("#console").textContent = "";
+    await api("/api/start", {mode: $("#run-mode").value});
+    savedWhileRunning = false; $("#restart").style.display = "none";
+    poll(true);
+  } catch (e) { toast(e.message, true); }
+}
+
+async function stop() {
+  $("#stop").disabled = true;
+  try { await api("/api/stop", {}); } catch (e) { toast(e.message, true); }
+  poll(true);
+}
+
+async function send(text) {
+  try { await api("/api/send", {text}); } catch (e) { toast(e.message, true); }
+}
+
+async function poll(once = false) {
+  try {
+    const s = await api("/api/status?since=" + since);
+    since = s.next;
+    if (s.output) {
+      const c = $("#console"), atBottom = c.scrollHeight - c.scrollTop - c.clientHeight < 40;
+      c.textContent += s.output;
+      if (c.textContent.length > 100000) c.textContent = c.textContent.slice(-80000);
+      if (atBottom) c.scrollTop = c.scrollHeight;
+    }
+    running = s.running; runningMode = s.mode;
+    $("#dot").className = "dot" + (running ? " on" : "");
+    const label = state ? state.catalog.input_modes[runningMode] : "";
+    $("#status").textContent = running ? `Running${label ? " · " + label : ""}` : "Stopped";
+    $("#start").disabled = running; $("#stop").disabled = !running; $("#run-mode").disabled = running;
+    const typing = running && runningMode !== "wakeword";
+    $("#say").disabled = $("#send").disabled = !typing;
+    $("#talk").disabled = !(running && runningMode === "push_to_talk");
+    $("#console-hint").textContent = !running ? "Start Jarvis to see what it hears and says."
+      : runningMode === "push_to_talk" ? "Press Talk, then speak. You can also type a message."
+      : runningMode === "text" ? "Type a message and press Send." : 'Say "Hey Jarvis", then your request.';
+    if (!running) $("#restart").style.display = "none";
+  } catch (e) {
+    $("#status").textContent = "Settings app is not running";
+    $("#dot").className = "dot";
+  }
+  if (!once) setTimeout(poll, running ? 500 : 2000);
+}
+
+async function preview() {
+  const btn = $("#preview"), cfg = collect(), provider = cfg.tts_provider;
+  btn.disabled = true; btn.textContent = "Loading voice...";
+  try {
+    const blob = await api("/api/preview", {provider, options: (cfg.tts || {})[provider] || {},
+                                            text: $("#preview-text").value});
+    if (provider === "print") { toast("The silent voice makes no sound."); return; }
+    const player = $("#player");
+    if (player.src) URL.revokeObjectURL(player.src);
+    player.src = URL.createObjectURL(blob);
+    await player.play();
+  } catch (e) { toast(e.message, true); }
+  finally { btn.disabled = false; btn.textContent = "Test voice"; }
+}
+
+document.addEventListener("input", (e) => {
+  if (e.target.closest("[data-path]")) { dirty = true; updateVisibility(); }
+});
+document.addEventListener("change", (e) => {
+  if (e.target.closest("[data-path]")) { dirty = true; updateVisibility(); }
+});
+$("#oc-preset").onchange = (e) => {
+  const p = state.catalog.openai_compatible_presets[e.target.value]; if (!p) return;
+  $("#oc-url").value = p.base_url; $("#oc-model").value = p.model; $("#oc-key").value = p.api_key_env || "";
+  dirty = true;
+};
+$("#reset-prompt").onclick = () => { $("#system_prompt").value = state.default_system_prompt; dirty = true; };
+$("#save").onclick = save;
+$("#start").onclick = start;
+$("#stop").onclick = stop;
+$("#restart").onclick = async () => {
+  const mode = runningMode; await stop();
+  $("#run-mode").value = mode; await start();
+};
+$("#preview").onclick = preview;
+$("#talk").onclick = () => send("");
+$("#send").onclick = () => { const t = $("#say").value.trim(); if (t) { send(t); $("#say").value = ""; } };
+$("#say").onkeydown = (e) => { if (e.key === "Enter") $("#send").click(); };
+window.addEventListener("beforeunload", (e) => { if (dirty) { e.preventDefault(); e.returnValue = ""; } });
+
+(async () => {
+  try { state = await api("/api/state"); render(); }
+  catch (e) { toast("Could not load settings: " + e.message, true); }
+  poll();
+})();
+</script>
+</body>
+</html>

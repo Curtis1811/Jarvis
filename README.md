@@ -87,6 +87,25 @@ for one run, for example `python -m jarvis --voice elevenlabs`.
 | `openai` | Add `OPENAI_API_KEY` to `.env`. Change the speaking style with `instructions`. |
 | `system` | `pip install -e ".[system]"`. The built-in Windows voice, no download. |
 
+## Settings app
+
+Double-click `Jarvis Settings.bat` (or run `python -m jarvis.settings_ui`) and a
+settings page opens in your browser at http://127.0.0.1:8765. From there you can:
+
+- pick the voice engine and voice (all the Kokoro voices, like `bm_george`), and
+  press **Test voice** to hear it before saving;
+- switch the brain between the Claude agent, Claude chat, or DeepSeek, Ollama,
+  LM Studio, OpenRouter and Groq, and choose which tools the agent may use;
+- change speech to text, mic sensitivity and the wake word;
+- edit Jarvis's personality and save API keys to `.env`;
+- start and stop Jarvis, watch what it hears and says, and press **Talk** or type
+  to it.
+
+The page only works on your own PC. Keep the settings window open while you use
+it. Saving rewrites `config.yaml` without its comments (the first save keeps a
+copy as `config.yaml.bak`); `config.example.yaml` still explains every option.
+If Jarvis is running, press **Restart to apply** after saving.
+
 ## Choosing a brain
 
 `agent` is the default and the only brain that can act: search the web, read
